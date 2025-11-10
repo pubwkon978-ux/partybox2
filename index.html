@@ -87,30 +87,51 @@
             padding: 15px 20px;
             border-bottom: 1px solid #e9ecef;
             min-width: 120px;
+            height: 70px;
+        }
+
+        tr {
+            background: white;
+        }
+
+        tbody tr:not(.group-row) td {
+            border-left: 1px solid #e9ecef;
+        }
+
+        tbody tr:not(.group-row) td:first-child {
+            border-left: none;
+            border-top-left-radius: 12px;
+            border-bottom-left-radius: 12px;
+        }
+
+        tbody tr:not(.group-row) td:last-child {
+            border-top-right-radius: 12px;
+            border-bottom-right-radius: 12px;
         }
 
         td:first-child {
             min-width: 150px;
             cursor: pointer;
             font-weight: 600;
-            padding: 0 !important;
+            padding: 5px !important;
         }
 
         .name-button {
             width: 100%;
-            padding: 19px 24px;
+            height: 60px;
+            padding: 0 24px;
             background: linear-gradient(#3DF346, #2962F0 0%, #3DF346 100%);
             color: black;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
             font-size: 1.2em;
             text-align: left;
             transition: all 0.3s ease;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: block;
-            margin: 5px;
+            display: flex;
+            align-items: center;
         }
 
         .name-button:hover {
@@ -128,24 +149,25 @@
             border-left: none;
         }
 
-        }
-
         .month-cell {
             text-align: right;
             font-weight: 500;
             color: #155724;
             font-size: 1.05em;
             background: #d4edda;
+            border-radius: 10px;
         }
 
         .amount-cell {
             font-weight: 600;
             text-align: right;
             font-size: 1.05em;
+            background: #87E978;
+            border-radius: 10px;
         }
 
         .paid-amount {
-            color: #28a745;
+            color: #00000;
         }
 
         .to-pay-amount {
@@ -153,10 +175,29 @@
         }
 
         .empty-cell {
-            color: #856404;
+            color: #721c24;
             text-align: right;
             font-size: 1.05em;
-            background: #fff3cd;
+            background: #f8d7da;
+        }
+
+        .paid-cell {
+            background: #c8f7c5 !important;
+            color: #155724;
+            font-weight: 600;
+        }
+
+        .group-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 1.2em;
+            padding: 15px 20px !important;
+            text-align: center;
+        }
+
+        .group-row {
+            border-top: 3px solid #00000;
         }
 
         .error {
@@ -425,6 +466,11 @@
             .payment-card .amount {
                 font-size: 1.1em;
             }
+
+            .group-header {
+                font-size: 1em;
+                padding: 12px 15px !important;
+            }
         }
     </style>
 </head>
@@ -516,6 +562,28 @@
         function displayData(data) {
             const months = ['OCTOBER', 'NOVEMBER', 'DECEMBER', 'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY'];
             
+            // Add base item amount for grouping
+            const dataWithBase = data.map(row => {
+                let baseAmount = parseFloat(row['ITEM AMOUNT']) || 0;
+                const name = (row.NAME || '').toLowerCase();
+                
+                // Check if name contains indication of multiple boxes
+                if (name.includes('sandaru') || baseAmount === 106000) {
+                    baseAmount = 26500; // Set to single box amount for grouping
+                }
+                
+                return {
+                    ...row,
+                    BASE_AMOUNT: baseAmount,
+                    DISPLAY_AMOUNT: parseFloat(row['ITEM AMOUNT']) || 0
+                };
+            });
+            
+            // Sort data by BASE_AMOUNT (descending)
+            const sortedData = dataWithBase.sort((a, b) => {
+                return b.BASE_AMOUNT - a.BASE_AMOUNT;
+            });
+            
             let html = '<div class="table-container"><table><thead><tr>';
             html += '<th>NAME</th>';
             html += '<th>ITEM AMOUNT</th>';
@@ -528,10 +596,23 @@
             html += '<th>AMOUNT TO PAY</th>';
             html += '</tr></thead><tbody>';
 
-            data.forEach((row, index) => {
+            let currentBaseAmount = null;
+            
+            sortedData.forEach((row, index) => {
+                const baseAmount = row.BASE_AMOUNT;
+                
+                // Add group header when base amount changes
+                if (currentBaseAmount !== baseAmount) {
+                    currentBaseAmount = baseAmount;
+                    html += `<tr class="group-row"><td colspan="${months.length + 4}" class="group-header">📦 Item Amount: Rs. ${formatNumber(baseAmount)}</td></tr>`;
+                }
+                
+                // Find original index for showDetails
+                const originalIndex = allData.findIndex(r => r.NAME === row.NAME);
+                
                 html += '<tr>';
-                html += `<td><button class="name-button" onclick="showDetails(${index})"> ${row.NAME || ''}</button></td>`;
-                html += `<td class="amount-cell">Rs. ${formatNumber(row['ITEM AMOUNT'] || 0)}</td>`;
+                html += `<td><button class="name-button" onclick="showDetails(${originalIndex})"> ${row.NAME || ''}</button></td>`;
+                html += `<td class="amount-cell">Rs. ${formatNumber(row.DISPLAY_AMOUNT)}</td>`;
                 
                 months.forEach(month => {
                     const value = row[month];
